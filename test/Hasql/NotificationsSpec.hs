@@ -22,15 +22,19 @@ spec = do
   describe "send and receive notification" $
     describe "when I send a notification to channel my handler is listening to" $
       it "should call our notification handler" $ do
-        dbOrError <- acquire "postgres://postgres:roottoor@localhost/hasql_notifications_test"
+        dbOrError <- acquire "postgres://postgres:postgres@localhost"
         case dbOrError of
             Right db -> do
                 let channelToListen = toPgIdentifier "test-channel"
                 mailbox <- newEmptyMVar :: IO (MVar ByteString)
                 listen db channelToListen
                 threadId <- forkIO $ waitForNotifications (\channel payload -> putMVar mailbox $ "Just got notification on channel " <> channel <> ": " <> payload) db
-                notify db (toPgIdentifier "test-channel") "Payload"
-                takeMVar mailbox `shouldReturn` "Just got notification on channel test-channel: Payload"
+                notifyDbOrError <- acquire "postgres://postgres:postgres@localhost"
+                case notifyDbOrError of
+                  Right notifyDb -> do
+                    notify notifyDb channelToListen "Payload"
+                    takeMVar mailbox `shouldReturn` "Just got notification on channel test-channel: Payload"
+                  Left _ -> die "Could not open database connection"
             _ -> die "Could not open database connection"
 
   describe "toPgIdenfier" $
