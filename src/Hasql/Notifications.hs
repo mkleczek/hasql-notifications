@@ -18,6 +18,7 @@ module Hasql.Notifications
 
 import Hasql.Pool (Pool, UsageError, use)
 import Hasql.Session (sql, run, statement)
+import qualified Hasql.Api.Eff.Session.Run as R
 import qualified Hasql.Session as S
 import qualified Hasql.Statement as HST
 import Hasql.Connection (Connection, withLibPQConnection)
@@ -60,7 +61,7 @@ notifyPool :: Pool -- ^ Pool from which the connection will be used to issue a N
            -> Text -- ^ Payload to be sent with the notification
            -> IO (Either UsageError ())
 notifyPool pool channel mesg =
-   use pool (statement (channel, mesg) callStatement)
+   use pool (R.Session $ run (statement (channel, mesg) callStatement))
    where
      callStatement = HST.Statement ("SELECT pg_notify" <> "($1, $2)") encoder HD.noResult False
      encoder = contramap fst (HE.param $ HE.nonNullable HE.text) <> contramap snd (HE.param $ HE.nonNullable HE.text)
